@@ -1,0 +1,505 @@
+C51 COMPILER V9.56.0.0   MAIN                                                              12/08/2017 23:21:22 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: D:\Keil_v5_C51\C51\BIN\C51.EXE main.c LARGE OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Lis
+                    -tings\main.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include <stdlib.h>
+   3          #include "ds1302.h"
+   4          #include "gameoverbeep.h"
+   5          #include "infrared.h"
+   6          #include "movingnumberled.h"
+   7          #define uchar unsigned char
+   8          #define uint unsigned int
+   9          #define max_length 64
+  10          #define up 1
+  11          #define down 2
+  12          #define left 3
+  13          #define right 4
+  14            
+  15          
+  16          uchar code zong[]={0x80,0x40,0x20,0x10,0x08,0x04,0x02,0x01}; 
+  17          uchar code redblue[]={0x7f,0xbf,0xdf,0xef,0xf7,0xfb,0xfd,0xfe}; 
+  18          uchar code starty[]={0x40,0xa0,0x58,0x3c,0x3c,0x18,0x02,0x00};
+  19          uchar code endjudge[2][8]={{0x10,0x20,0x40,0x88,0x40,0x20,0x10,0x08},{0x10,0x22,0x42,0x8e,0x48,0x20,0x10,0
+             -x08}};
+  20          
+  21          uint  speed=2000; 
+  22          uchar  lastx,lasty,gc=2;
+  23          uchar idata snakex[max_length],snakey[max_length]; 
+  24          uchar length; 
+  25          uchar fooddirection,snakedirection;  
+  26          //char snakecount;
+  27          //char foodcount;
+  28          
+  29          //char H_snakecount;
+  30          //char H_foodcount;
+  31          //char L_foodcount;
+  32          //char L_snakecount;
+  33          char score;
+  34          char C_S;
+  35          char F_D;
+  36          char C_F;
+  37          
+  38          bit snakelive;
+  39          
+  40          
+  41          uchar foodx,foody;  
+  42          bit exist;
+  43          
+  44          
+  45          void delay(uchar i)
+  46          {
+  47   1      uchar j;
+  48   1      while(i--)for(j=110;j>0;j--);
+  49   1      }
+  50          
+  51          //void pause();
+  52          void jump();
+  53          void snakemove();
+C51 COMPILER V9.56.0.0   MAIN                                                              12/08/2017 23:21:22 PAGE 2   
+
+  54          void foodmove();
+  55          void foodjump();
+  56          void foodpause();
+  57          void init();
+  58          void creatfood();
+  59          void drawsnake();
+  60          void drawfood();
+  61          void playgame();
+  62          void snakekeyscan();
+  63          void foodkeyscan();
+  64          void eatfood();
+  65          void gameover();
+  66          void di();
+  67          void UsartInit();
+  68          bit snakewall();
+  69          bit snakeself();
+  70          bit foodwall();
+  71          void main()
+  72          {
+  73   1      init();
+  74   1      playgame();
+  75   1      gameover();
+  76   1      }
+  77          
+  78          void di()
+  79          { uint i=50;
+  80   1        while(1){
+  81   2          
+  82   2          i--;
+  83   2          if(i>0){
+  84   3            beep=~beep;
+  85   3            delay(2);
+  86   3          }else{
+  87   3            break;
+  88   3          }
+  89   2        }
+  90   1      }
+  91          
+  92          sfr AUXR   = 0x8E;
+  93          
+  94          void InitUART(void)
+  95          {
+  96   1          TMOD = 0x20;
+  97   1          SCON = 0x50;
+  98   1          TH1 = 0xD9;
+  99   1          TL1 = TH1;
+ 100   1          PCON = 0x00;
+ 101   1          TR1 = 1;
+ 102   1      }
+ 103          
+ 104          
+ 105          
+ 106          void init() //???
+ 107          {
+ 108   1        uchar i;
+ 109   1      score=30;
+ 110   1      //snakecount=8;
+ 111   1      //foodcount=0;
+ 112   1      //H_snakecount=12;
+ 113   1      //H_foodcount=0;
+ 114   1      //L_foodcount=0;
+ 115   1      //L_snakecount=2;
+C51 COMPILER V9.56.0.0   MAIN                                                              12/08/2017 23:21:22 PAGE 3   
+
+ 116   1      C_S=0;
+ 117   1      C_F=0;
+ 118   1      F_D=0;
+ 119   1      length=6;
+ 120   1       AUXR = AUXR|0x40;  // T1, 1T Mode
+ 121   1          InitUART();
+ 122   1      for(i=0;i<length;i++);{
+ 123   2        snakex[i]=0;
+ 124   2        snakey[i]=0;
+ 125   2      }
+ 126   1      
+ 127   1      
+ 128   1      foodx=7;
+ 129   1      foody=7;
+ 130   1      exist=1;
+ 131   1      snakedirection=4;
+ 132   1      fooddirection=3;
+ 133   1      snakelive=1;
+ 134   1      srand(gettime()); //?ds1302???,???????
+ 135   1      while(getkeynum()!=45){
+ 136   2        for(i=0;i<8;i++){
+ 137   3        P0=starty[i];
+ 138   3        P1=redblue[i];
+ 139   3          snakekeyscan();
+ 140   3          foodkeyscan();
+ 141   3          P0=0;
+ 142   3          P1=0xff;
+ 143   3        }
+ 144   2      }
+ 145   1      }
+ 146          void playgame()
+ 147          {
+ 148   1      uint p;
+ 149   1      delay(5);
+ 150   1      snakemove();
+ 151   1        while(snakelive)
+ 152   1        {  
+ 153   2          if(score<=0){
+ 154   3            break;
+ 155   3          }
+ 156   2      //    if(snakecount==0){
+ 157   2      //      snakecount=8;
+ 158   2      //      foodcount=0;
+ 159   2      //    }
+ 160   2      //    if(H_snakecount==0){
+ 161   2      //      H_snakecount=12;
+ 162   2      //      H_foodcount=0;
+ 163   2      //    }
+ 164   2      //    if(L_snakecount==0){
+ 165   2      //      L_snakecount=2;
+ 166   2      //      L_foodcount=0;
+ 167   2      //    }
+ 168   2          if(snakewall()&&snakeself())
+ 169   2          {
+ 170   3            if(!foodwall())
+ 171   3            {
+ 172   4              di();
+ 173   4              exist=0;
+ 174   4            }
+ 175   3            if(!exist)
+ 176   3            {
+ 177   4              creatfood();
+C51 COMPILER V9.56.0.0   MAIN                                                              12/08/2017 23:21:22 PAGE 4   
+
+ 178   4            }
+ 179   3            exist=1;
+ 180   3            eatfood();
+ 181   3            if(score>=80){
+ 182   4              break;
+ 183   4            }
+ 184   3            for(p=speed;p>0;p--) //????,????
+ 185   3            {
+ 186   4              drawsnake();
+ 187   4              P0=0;
+ 188   4              movingnumberled(C_F/10,C_F%10,C_S/10,C_S%10,0,score/100%10,score/10%10,score%10);
+ 189   4              drawfood();
+ 190   4            }
+ 191   3            snakemove();
+ 192   3            if(!F_D){
+ 193   4            foodmove();
+ 194   4            }
+ 195   3          }else{
+ 196   3          snakelive=0;
+ 197   3          }
+ 198   2      
+ 199   2        }
+ 200   1      }
+ 201          void drawsnake()   //???
+ 202          {
+ 203   1      uchar i;
+ 204   1      for(i=0;i<length;i++)
+ 205   1      {
+ 206   2      //P0=0;
+ 207   2      //movingnumberled(C_F/10,C_F%10,C_S/10,C_S%10,0,score/100%10,score/10%10,score%10);
+ 208   2      //P0=0;
+ 209   2      P0=zong[snakey[i]];
+ 210   2      P2=redblue[snakex[i]];
+ 211   2      snakekeyscan();
+ 212   2      if(!C_S)
+ 213   2        foodpause();
+ 214   2      P0=0;
+ 215   2      P2=0xff;
+ 216   2      }
+ 217   1      }
+ 218          
+ 219          void creatfood()
+ 220          {
+ 221   1      uchar i;
+ 222   1      loop: foodx=((int)rand()%6)+1;
+ 223   1      foody=((int)rand()%6)+1;
+ 224   1      for(i=0;i<length;i++)
+ 225   1      {
+ 226   2      if((foodx==snakex[i])&&((foody)==snakey[i]))
+ 227   2      goto loop;
+ 228   2      }
+ 229   1      }
+ 230          void drawfood() //????
+ 231          {
+ 232   1      if(exist)
+ 233   1      {
+ 234   2      //movingnumberled(C_F/10,C_F%10,C_S/10,C_S%10,0,score/100%10,score/10%10,score%10);
+ 235   2      //P0=0;
+ 236   2      //P2=0xff;
+ 237   2      P0=zong[foody];
+ 238   2      P1=redblue[foodx];
+ 239   2      foodkeyscan(); 
+C51 COMPILER V9.56.0.0   MAIN                                                              12/08/2017 23:21:22 PAGE 5   
+
+ 240   2      if(!C_S){
+ 241   3        if(!C_F)
+ 242   3          foodjump();
+ 243   3      }
+ 244   2      P0=0;
+ 245   2      P1=0xff;
+ 246   2      }
+ 247   1      }
+ 248          
+ 249          void foodkeyscan(){
+ 250   1        if(getkeynum()==40)
+ 251   1      {
+ 252   2      fooddirection=up;
+ 253   2      }
+ 254   1      
+ 255   1      
+ 256   1      if(getkeynum()==19)
+ 257   1      {
+ 258   2      fooddirection=down;
+ 259   2      }
+ 260   1      
+ 261   1      
+ 262   1      if(getkeynum()==7)
+ 263   1      {
+ 264   2      fooddirection=left;
+ 265   2      }
+ 266   1      
+ 267   1      if(getkeynum()==9)
+ 268   1      {
+ 269   2      fooddirection=right;
+ 270   2      }
+ 271   1      
+ 272   1      }
+ 273          
+ 274          void snakekeyscan() //????
+ 275          {
+ 276   1      
+ 277   1      if(getkeynum()==18)
+ 278   1      {
+ 279   2      if(snakedirection!=down)snakedirection=up;
+ 280   2      }
+ 281   1      
+ 282   1      
+ 283   1      if(getkeynum()==52)
+ 284   1      {
+ 285   2      if(snakedirection!=up)snakedirection=down;
+ 286   2      }
+ 287   1      
+ 288   1      
+ 289   1      if(getkeynum()==8)
+ 290   1      {
+ 291   2      if(snakedirection!=right)snakedirection=left;
+ 292   2      }
+ 293   1      
+ 294   1      
+ 295   1      if(getkeynum()==60)
+ 296   1      {
+ 297   2      if(snakedirection!=left)snakedirection=right;
+ 298   2      }
+ 299   1      
+ 300   1      }
+ 301          
+C51 COMPILER V9.56.0.0   MAIN                                                              12/08/2017 23:21:22 PAGE 6   
+
+ 302          void snakemove()
+ 303          {
+ 304   1      uchar k;
+ 305   1      if(F_D){
+ 306   2      F_D--;
+ 307   2      }
+ 308   1      if(C_S){
+ 309   2      C_S--;
+ 310   2      }
+ 311   1      if(C_F){
+ 312   2      C_F--;
+ 313   2      }
+ 314   1      score--;
+ 315   1      //snakecount--;
+ 316   1      //H_snakecount--;
+ 317   1      //L_snakecount--;
+ 318   1      lastx=snakex[length-1];
+ 319   1      lasty=snakey[length-1];
+ 320   1      for(k=length-1;k>0;k--)
+ 321   1      {
+ 322   2      snakex[k]=snakex[k-1];
+ 323   2      snakey[k]=snakey[k-1];
+ 324   2      }
+ 325   1      switch(snakedirection)
+ 326   1      {
+ 327   2      case up: snakey[0]++;
+ 328   2      break;
+ 329   2      case down: snakey[0]--;
+ 330   2      break;
+ 331   2      case left: snakex[0]--;
+ 332   2      break;
+ 333   2      case right: snakex[0]++;
+ 334   2      break;
+ 335   2      }
+ 336   1        SBUF=(C_F);
+ 337   1        while(!TI);      
+ 338   1        TI=0;
+ 339   1      delay(1);
+ 340   1        SBUF=(C_S);
+ 341   1        while(!TI);      
+ 342   1        TI=0;
+ 343   1      delay(1);
+ 344   1        SBUF=(score);
+ 345   1        while(!TI);      
+ 346   1        TI=0;
+ 347   1      }
+ 348          void foodmove(){
+ 349   1        switch(fooddirection)
+ 350   1      {
+ 351   2      case up: foody++;
+ 352   2      break;
+ 353   2      case down: foody--;
+ 354   2      break;
+ 355   2      case left: foodx--;
+ 356   2      break;
+ 357   2      case right: foodx++;
+ 358   2      break;
+ 359   2      }
+ 360   1      }
+ 361          
+ 362          //void pause(){
+ 363          //    L_snakecount=2;
+C51 COMPILER V9.56.0.0   MAIN                                                              12/08/2017 23:21:22 PAGE 7   
+
+ 364          //    L_foodcount=L_snakecount;
+ 365          //}
+ 366          
+ 367          void jump(){
+ 368   1        switch(fooddirection)
+ 369   1      {
+ 370   2      case up: foody+=2;
+ 371   2      break;
+ 372   2      case down: foody-=2;
+ 373   2      break;
+ 374   2      case left: foodx-=2;
+ 375   2      break;
+ 376   2      case right: foodx+=2;
+ 377   2      break;
+ 378   2      }
+ 379   1      }
+ 380          
+ 381          void foodjump()
+ 382          {
+ 383   1        if(getkeynum()==15)
+ 384   1          
+ 385   1        { 
+ 386   2          C_F=8;
+ 387   2          di();
+ 388   2          jump();
+ 389   2      //    snakecount=8;
+ 390   2      //    foodcount=snakecount;
+ 391   2        }
+ 392   1      }
+ 393          
+ 394          void foodpause(){
+ 395   1        if(getkeynum()==22)
+ 396   1        {
+ 397   2          C_S=12;
+ 398   2          F_D=3;
+ 399   2          di();
+ 400   2      //    pause();
+ 401   2      //    H_snakecount=12;
+ 402   2      //    H_foodcount=H_snakecount;
+ 403   2        }
+ 404   1      }
+ 405          
+ 406          bit snakewall()  //???????
+ 407          {
+ 408   1      if((snakex[0]>7)||(snakey[0]>7))return 0;
+ 409   1      else return 1;
+ 410   1      }
+ 411          bit snakeself()  //????????
+ 412          {
+ 413   1      uchar i;
+ 414   1      for(i=3;i<length;i++)
+ 415   1      {
+ 416   2      if((snakex[0]==snakex[i])&&(snakey[0]==snakey[i]))
+ 417   2      return 0;
+ 418   2      }
+ 419   1      return 1;
+ 420   1      }
+ 421          
+ 422          bit foodwall()
+ 423          {
+ 424   1          if(foodx>7||foody>7){
+ 425   2          score+=15;
+C51 COMPILER V9.56.0.0   MAIN                                                              12/08/2017 23:21:22 PAGE 8   
+
+ 426   2          return 0;
+ 427   2          }else return 1;
+ 428   1      }
+ 429          
+ 430          void eatfood()
+ 431          {
+ 432   1      uchar i;
+ 433   1      for(i=0;i<length;i++)
+ 434   1      {
+ 435   2      if((foodx==snakex[i])&&(foody==snakey[i]))
+ 436   2      {
+ 437   3      score+=15;
+ 438   3      di();
+ 439   3      exist=0;
+ 440   3      break;
+ 441   3      }
+ 442   2      }
+ 443   1      }
+ 444          
+ 445          void gameover() //????,??
+ 446          {
+ 447   1      uchar i;
+ 448   1      god();
+ 449   1      if(score<=0||snakelive==0){
+ 450   2        score=0;
+ 451   2      }else{
+ 452   2        score=1;
+ 453   2      }
+ 454   1      while(getkeynum()!=45){
+ 455   2        for(i=0;i<8;i++){
+ 456   3        P0=endjudge[score][i];
+ 457   3        P1=redblue[i];
+ 458   3          snakekeyscan();
+ 459   3          foodkeyscan();
+ 460   3          P0=0;
+ 461   3          P1=0xff;
+ 462   3        }
+ 463   2      }
+ 464   1        
+ 465   1      
+ 466   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2302    ----
+   CONSTANT SIZE    =     40    ----
+   XDATA SIZE       =    149      24
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =    128    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
